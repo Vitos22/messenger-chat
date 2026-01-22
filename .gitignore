@@ -1,0 +1,28 @@
+# .gitignore
+
+# Папка с зависимостями — НЕ ЗАГРУЖАТЬ!
+node_modules/
+
+# Файлы окружения (если будут)
+.env
+.env.local
+
+# Логи
+logs
+*.log
+
+# IDE и редакторы
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+._*
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Build outputs (если будет сборка)
+dist/
+build/
+out/
