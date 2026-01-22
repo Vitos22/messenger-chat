@@ -1,0 +1,118 @@
+/* public/style.css */
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  margin: 0;
+  background-color: #f4f4f4;
+}
+
+#chat-container {
+  display: none;
+}
+
+#nickname-form {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+#nickname-form h2 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+#nickname-input {
+  padding: 10px;
+  font-size: 16px;
+  width: 200px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#nickname-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+button {
+  padding: 10px 15px;
+  font-size: 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+#messages {
+  border: 1px solid #ccc;
+  height: 400px;
+  overflow-y: scroll;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message {
+  max-width: 80%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  word-wrap: break-word;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+.self {
+  align-self: flex-end;
+  background-color: #e1f5fe;
+}
+
+.other {
+  align-self: flex-start;
+  background-color: #f0f0f0;
+}
+
+.author {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.timestamp {
+  font-size: 0.8em;
+  color: #888;
+}
+
+#input-container {
+  display: flex;
+  gap: 10px;
+}
+
+#message-input {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#message-input:focus {
+  outline: none;
+  border-color: #007bff;
+}

@@ -1,0 +1,123 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Мессенджер</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="nickname-form">
+    <h2>Введите ваш никнейм:</h2>
+    <input type="text" id="nickname-input" placeholder="Ваш никнейм" maxlength="16" />
+    <button onclick="setNickname()">Войти</button>
+  </div>
+
+  <div id="chat-container">
+   <h2>Мессенджер <span id="user-count">0</span> онлайн</h2>
+    <div id="messages"></div>
+    <div id="input-container">
+      <input type="text" id="message-input" placeholder="Введите сообщение..." />
+      <button onclick="sendMessage()">Отправить</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ... (весь JavaScript остаётся без изменений)
+    const socket = io();
+    let currentUser = null;
+
+  function setNickname() {
+  const input = document.getElementById('nickname-input');
+  const nickname = input.value.trim();
+
+  if (!nickname) {
+    alert('Никнейм не может быть пустым!');
+    return;
+  }
+
+  if (nickname.length < 2) {
+    alert('Никнейм должен быть не менее 2 символов!');
+    return;
+  }
+
+  if (nickname.length > 16) {
+    alert('Никнейм слишком длинный (макс. 16 символов)');
+    return;
+  }
+
+  // Проверка на запрещённые символы (по желанию)
+  if (/[^a-zA-Z0-9а-яА-ЯёЁ_]/.test(nickname)) {
+    alert('Никнейм может содержать только буквы, цифры и _');
+    return;
+  }
+
+  socket.emit('set nickname', nickname);
+  document.getElementById('nickname-form').style.display = 'none';
+  document.getElementById('chat-container').style.display = 'block';
+}
+
+
+    socket.on('self info', (data) => {
+      currentUser = data;
+      addSystemMessage(`Добро пожаловать, ${data.nickname}!`);
+    });
+
+    socket.on('new message', (message) => {
+      const isSelf = message.author === currentUser?.nickname;
+      const messageElement = document.createElement('div');
+      messageElement.className = `message ${isSelf ? 'self' : 'other'}`;
+      messageElement.style.borderLeft = `4px solid ${message.color}`;
+      messageElement.innerHTML = `
+        <span class="author" style="color: ${message.color}">${message.author}</span>
+        <span class="text">${message.text}</span>
+        <span class="timestamp">${message.timestamp}</span>
+      `;
+      document.getElementById('messages').appendChild(messageElement);
+      scrollToBottom();
+    });
+
+    socket.on('user joined', (data) => {
+      addSystemMessage(`${data.nickname} присоединился к чату.`);
+    });
+
+    socket.on('user left', (data) => {
+      addSystemMessage(`${data.nickname} покинул чат.`);
+    });
+
+    socket.on('user count', (count) => {
+      document.getElementById('user-count').textContent = count;
+    });
+
+
+    function sendMessage() {
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+      if (text) {
+        socket.emit('send message', text);
+        input.value = '';
+      }
+    }
+
+    function addSystemMessage(text) {
+      const el = document.createElement('div');
+      el.style.color = '#666';
+      el.style.fontStyle = 'italic';
+      el.style.textAlign = 'center';
+      el.textContent = text;
+      document.getElementById('messages').appendChild(el);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    document.getElementById('message-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
