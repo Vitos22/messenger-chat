@@ -10,7 +10,7 @@
   <div id="nickname-form">
     <h2>Введите ваш никнейм:</h2>
     <input type="text" id="nickname-input" placeholder="Ваш никнейм" maxlength="16" />
-    <button onclick="setNickname()">Войти</button>
+    <button id="join-btn">Войти</button>
   </div>
 
   <div id="chat-container">
@@ -18,14 +18,14 @@
     <div id="messages"></div>
     <div id="input-container">
       <input type="text" id="message-input" placeholder="Введите сообщение..." />
-      <button onclick="sendMessage()">Отправить</button>
+      <button id="send-btn">Отправить</button>
     </div>
   </div>
 
   <!-- Подключаем socket.io -->
   <script src="/socket.io/socket.io.js"></script>
   <!-- Подключаем наш код -->
-  <script type="module" src="client.js"></script>
+  <script  type="module" src="client.js"></script>
 </body>
 
 </html>

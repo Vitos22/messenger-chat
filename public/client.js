@@ -13,6 +13,11 @@ const nicknameInput = document.getElementById('nickname-input');
 const chatContainer = document.getElementById('chat-container');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
+// Убираем onclick из HTML
+document.getElementById('join-btn').addEventListener('click', setNickname);
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+// Или через delegation, если нужно
 
 // === Функции ===
 
@@ -75,6 +80,12 @@ socket.on('self info', (data) => {
   currentUser = data;
   addSystemMessage(`Добро пожаловать, ${data.nickname}!`);
 });
+
+socket.on('user count', (count) => {
+  const text = count === 1 ? 'человек' : count < 5 ? 'человека' : 'человек';
+  document.getElementById('user-count').textContent = `${count} ${text}`;
+});
+
 
 socket.on('new message', (message) => {
   addMessage(message);

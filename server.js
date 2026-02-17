@@ -57,6 +57,7 @@ io.on('connection', (socket) => {
 
     // Отправляем пользователю его данные
     socket.emit('self info', { nickname, color });
+    updateUserCount(); // обновляем количество пользователей
   });
 
      // Отправляем историю
