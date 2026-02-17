@@ -119,6 +119,24 @@
     document.getElementById('message-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+
+   socket.on('message history', (messages) => {
+  messages.forEach(addMessage);
+});
+
+function addMessage(message) {
+  const isSelf = message.author === currentUser?.nickname;
+  const messageElement = document.createElement('div');
+  messageElement.className = `message ${isSelf ? 'self' : 'other'}`;
+  messageElement.style.borderLeft = `4px solid ${message.color}`;
+  messageElement.innerHTML = `
+    <span class="author" style="color: ${message.color}">${message.author}</span>
+    <span class="text">${message.text}</span>
+    <span class="timestamp">${message.timestamp}</span>
+  `;
+  document.getElementById('messages').appendChild(messageElement);
+}
+
   </script>
 </body>
 </html>

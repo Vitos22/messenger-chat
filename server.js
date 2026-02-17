@@ -7,6 +7,9 @@ import{ v4 as uuidv4 } from'uuid';
 const app = express();
 const server =  createServer(app);
 
+const messageHistory=[];
+const messageLimit=20;
+
 
 const io = new Server(server, {
   cors: {
@@ -56,6 +59,9 @@ io.on('connection', (socket) => {
     socket.emit('self info', { nickname, color });
   });
 
+     // Отправляем историю
+     socket.emit('message history', messageHistory);
+
   // Событие: получение сообщения
   socket.on('send message', (text) => {
     const user = users[socket.id];
@@ -70,6 +76,12 @@ io.on('connection', (socket) => {
 
     // Рассылаем сообщение всем, включая отправителя
     io.emit('new message', message);
+    if(messageHistory.length>=messageLimit){
+      messageHistory.push(message);
+      messageHistory.shift();
+    }else{
+      messageHistory.push(message);
+    }
   });
 
   // Пользователь отключился
