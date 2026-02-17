@@ -61,6 +61,11 @@ io.on('connection', (socket) => {
 
      // Отправляем историю
      socket.emit('message history', messageHistory);
+    
+     // Событие: пользователь печатает сообщение
+    socket.on('typing', (nickname) => {
+    socket.broadcast.emit('user typing', nickname);});
+
 
   // Событие: получение сообщения
   socket.on('send message', (text) => {

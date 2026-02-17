@@ -137,6 +137,29 @@ function addMessage(message) {
   document.getElementById('messages').appendChild(messageElement);
 }
 
+document.getElementById('message-input').addEventListener('input', () => {
+  socket.emit('typing', currentUser.nickname);
+});
+
+let typingTimeout;
+
+socket.on('user typing', (nickname) => {
+  const messages = document.getElementById('messages');
+  const typingEl = document.getElementById('typing') || document.createElement('div');
+  typingEl.id = 'typing';
+  typingEl.style.color = '#888';
+  typingEl.style.fontSize = '0.9em';
+  typingEl.textContent = `${nickname} печатает...`;
+
+  messages.appendChild(typingEl);
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    if (typingEl.parentNode) {
+      typingEl.parentNode.removeChild(typingEl);
+    }
+  }, 1500);
+});
+
   </script>
 </body>
 </html>
