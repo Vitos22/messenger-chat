@@ -142,14 +142,13 @@ messageInput.addEventListener('input', () => {
     socket.emit('typing', currentUser.nickname);
   }
 });
-// === ВИДЕОЧАТ ===
+// === ВИДЕОЧАТ (исправлено) ===
 let localStream;
 let peerConnection;
 const localVideo = document.getElementById('local-video');
 const remoteVideo = document.getElementById('remote-video');
 const callBtn = document.getElementById('call-btn');
 
-// STUN-серверы (помогают найти путь через интернет)
 const configuration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -157,76 +156,120 @@ const configuration = {
   ]
 };
 
-// Запуск видеозвонка
+// Запуск звонка (только инициатор!)
 async function startCall() {
   try {
-    // 1. Получаем доступ к камере и микрофону
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
+    if (!localStream) {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+    }
 
-    // 2. Создаём соединение
+    closeCurrentConnection(); // Закрываем старое соединение
+
     peerConnection = new RTCPeerConnection(configuration);
 
-    // Добавляем свои треки
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
-    });
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    // 3. При получении кандидата — отправляем через сокет
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit('ice-candidate', event.candidate);
       }
     };
 
-    // 4. Когда приходит удалённый поток — показываем
     peerConnection.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
     };
 
-    // 5. Создаём offer
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', offer);
 
-    callBtn.disabled = true;
-    callBtn.textContent = 'Звонок активен...';
+    updateCallButton('📞 Звонок активен...');
   } catch (err) {
     console.error('Ошибка при звонке:', err);
     alert('Не удалось получить доступ к камере или микрофону');
   }
 }
 
-// Обработка входящего offer
+// Принятие входящего offer (пассивная сторона)
 socket.on('offer', async (offer) => {
-  if (!peerConnection) {
-    await startCall(); // Инициализируем ответ
-  }
+  try {
+    if (!localStream) {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+    }
 
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  socket.emit('answer', answer);
+    closeCurrentConnection();
+
+    peerConnection = new RTCPeerConnection(configuration);
+
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('ice-candidate', event.candidate);
+      }
+    };
+
+    peerConnection.ontrack = (event) => {
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    // Только здесь устанавливаем offer
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit('answer', answer);
+
+    updateCallButton('📞 Входящий звонок...');
+  } catch (err) {
+    console.error('Ошибка при приёме offer:', err);
+  }
 });
 
-// Обработка ответа
+// Получение ответа
 socket.on('answer', async (answer) => {
-  if (peerConnection) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  try {
+    if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      updateCallButton('📞 Звонок активен...');
+    }
+  } catch (err) {
+    console.error('Ошибка при приёме answer:', err);
   }
 });
 
-// Обработка ICE-кандидатов
+// ICE-кандидаты
 socket.on('ice-candidate', (candidate) => {
-  if (peerConnection) {
-    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  try {
+    if (peerConnection) {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+  } catch (err) {
+    console.error('Ошибка при добавлении ICE-кандидата:', err);
   }
 });
 
-// Кнопка "Позвонить"
+// Кнопка
 callBtn.addEventListener('click', () => {
-  if (!peerConnection) {
+  if (!peerConnection || peerConnection.signalingState === 'closed') {
     startCall();
+  } else {
+    closeCurrentConnection();
+    updateCallButton('📞 Позвонить');
   }
 });
 
+// Утилиты
+function closeCurrentConnection() {
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+}
+
+function updateCallButton(text) {
+  callBtn.textContent = text;
+  callBtn.disabled = text.includes('активен');
+}
