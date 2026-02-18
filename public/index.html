@@ -15,6 +15,13 @@
 
   <div id="chat-container">
     <h2>Мессенджер <span id="user-count">0</span> онлайн</h2>
+    <!-- Внутри #chat-container, например после h2 -->
+    <div id="video-chat">
+      <video id="local-video" autoplay muted></video>
+      <video id="remote-video" autoplay></video>
+      <button id="call-btn">📞 Позвонить</button>
+    </div>
+
     <div id="messages"></div>
     <div id="input-container">
       <input type="text" id="message-input" placeholder="Введите сообщение..." />

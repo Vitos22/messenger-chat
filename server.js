@@ -90,6 +90,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Сигнализация WebRTC
+socket.on('offer', (data) => {
+  socket.broadcast.emit('offer', data);
+});
+
+socket.on('answer', (data) => {
+  socket.broadcast.emit('answer', data);
+});
+
+socket.on('ice-candidate', (data) => {
+  socket.broadcast.emit('ice-candidate', data);
+});
+
+
   // Пользователь отключился
   socket.on('disconnect', () => {
     const user = users[socket.id];
