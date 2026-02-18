@@ -142,3 +142,91 @@ messageInput.addEventListener('input', () => {
     socket.emit('typing', currentUser.nickname);
   }
 });
+// === ВИДЕОЧАТ ===
+let localStream;
+let peerConnection;
+const localVideo = document.getElementById('local-video');
+const remoteVideo = document.getElementById('remote-video');
+const callBtn = document.getElementById('call-btn');
+
+// STUN-серверы (помогают найти путь через интернет)
+const configuration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' }
+  ]
+};
+
+// Запуск видеозвонка
+async function startCall() {
+  try {
+    // 1. Получаем доступ к камере и микрофону
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+
+    // 2. Создаём соединение
+    peerConnection = new RTCPeerConnection(configuration);
+
+    // Добавляем свои треки
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+
+    // 3. При получении кандидата — отправляем через сокет
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('ice-candidate', event.candidate);
+      }
+    };
+
+    // 4. Когда приходит удалённый поток — показываем
+    peerConnection.ontrack = (event) => {
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    // 5. Создаём offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('offer', offer);
+
+    callBtn.disabled = true;
+    callBtn.textContent = 'Звонок активен...';
+  } catch (err) {
+    console.error('Ошибка при звонке:', err);
+    alert('Не удалось получить доступ к камере или микрофону');
+  }
+}
+
+// Обработка входящего offer
+socket.on('offer', async (offer) => {
+  if (!peerConnection) {
+    await startCall(); // Инициализируем ответ
+  }
+
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  socket.emit('answer', answer);
+});
+
+// Обработка ответа
+socket.on('answer', async (answer) => {
+  if (peerConnection) {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  }
+});
+
+// Обработка ICE-кандидатов
+socket.on('ice-candidate', (candidate) => {
+  if (peerConnection) {
+    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  }
+});
+
+// Кнопка "Позвонить"
+callBtn.addEventListener('click', () => {
+  if (!peerConnection) {
+    startCall();
+  }
+});
+
