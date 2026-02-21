@@ -143,133 +143,146 @@ messageInput.addEventListener('input', () => {
   }
 });
 // === ВИДЕОЧАТ (исправлено) ===
-let localStream;
-let peerConnection;
-const localVideo = document.getElementById('local-video');
-const remoteVideo = document.getElementById('remote-video');
-const callBtn = document.getElementById('call-btn');
+// webrtc.js — обновлённая версия
+export function setupWebRTC(socket) {
+  let localStream = null;
+  let peerConnection = null;
 
-const configuration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' }
-  ]
-};
+  const localVideo = document.getElementById('local-video');
+  const remoteVideo = document.getElementById('remote-video');
+  const callBtn = document.getElementById('call-btn');
 
-// Запуск звонка (только инициатор!)
-async function startCall() {
-  try {
-    if (!localStream) {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
+  const configuration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' }
+    ]
+  };
+
+  function getPeerConnection() {
+    if (!peerConnection) {
+      console.log('✅ Создано новое соединение RTCPeerConnection');
+      peerConnection = new RTCPeerConnection(configuration);
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', event.candidate);
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        console.log('🎥 Получен удалённый трек');
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        console.log('🌐 Connection state:', peerConnection.connectionState);
+      };
+
+      peerConnection.onsignalingstatechange = () => {
+        console.log('🔄 Signaling state:', peerConnection.signalingState);
+      };
     }
-
-    closeCurrentConnection(); // Закрываем старое соединение
-
-    peerConnection = new RTCPeerConnection(configuration);
-
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice-candidate', event.candidate);
-      }
-    };
-
-    peerConnection.ontrack = (event) => {
-      remoteVideo.srcObject = event.streams[0];
-    };
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('offer', offer);
-
-    updateCallButton('📞 Звонок активен...');
-  } catch (err) {
-    console.error('Ошибка при звонке:', err);
-    alert('Не удалось получить доступ к камере или микрофону');
+    return peerConnection;
   }
-}
 
-// Принятие входящего offer (пассивная сторона)
-socket.on('offer', async (offer) => {
-  try {
-    if (!localStream) {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
-    }
-
-    closeCurrentConnection();
-
-    peerConnection = new RTCPeerConnection(configuration);
-
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice-candidate', event.candidate);
+  async function startCall() {
+    try {
+      if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
       }
-    };
 
-    peerConnection.ontrack = (event) => {
-      remoteVideo.srcObject = event.streams[0];
-    };
+      closeCurrentConnection();
+      const pc = getPeerConnection();
 
-    // Только здесь устанавливаем offer
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit('answer', answer);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      console.log('📤 Отправлен offer, состояние:', pc.signalingState);
 
-    updateCallButton('📞 Входящий звонок...');
-  } catch (err) {
-    console.error('Ошибка при приёме offer:', err);
-  }
-});
-
-// Получение ответа
-socket.on('answer', async (answer) => {
-  try {
-    if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      socket.emit('offer', offer);
       updateCallButton('📞 Звонок активен...');
+    } catch (err) {
+      console.error('❌ Ошибка при звонке:', err);
+      alert('Не удалось получить доступ к камере или микрофону');
     }
-  } catch (err) {
-    console.error('Ошибка при приёме answer:', err);
   }
-});
 
-// ICE-кандидаты
-socket.on('ice-candidate', (candidate) => {
-  try {
+  socket.on('offer', async (offer) => {
+    try {
+      if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+      }
+
+      closeCurrentConnection();
+      const pc = getPeerConnection();
+
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('📥 Получен offer, установлен remote description');
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      console.log('📤 Отправлен answer');
+
+      socket.emit('answer', answer);
+      updateCallButton('📞 Входящий звонок...');
+    } catch (err) {
+      console.error('❌ Ошибка при приёме offer:', err);
+    }
+  });
+
+  socket.on('answer', async (answer) => {
+    try {
+      if (!peerConnection) {
+        console.warn('❌ Нет соединения для установки answer');
+        return;
+      }
+
+      if (peerConnection.signalingState !== 'have-local-offer') {
+        console.warn('❌ Неверное состояние для answer:', peerConnection.signalingState);
+        return;
+      }
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('✅ Ответ установлен');
+      updateCallButton('📞 Звонок активен...');
+    } catch (err) {
+      console.error('❌ Ошибка при установке answer:', err);
+    }
+  });
+
+  socket.on('ice-candidate', (candidate) => {
+    try {
+      if (peerConnection) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    } catch (err) {
+      console.error('❌ Ошибка ICE-кандидата:', err);
+    }
+  });
+
+  callBtn.addEventListener('click', () => {
+    if (!peerConnection || peerConnection.signalingState === 'closed') {
+      startCall();
+    } else {
+      closeCurrentConnection();
+      updateCallButton('📞 Позвонить');
+    }
+  });
+
+  function closeCurrentConnection() {
     if (peerConnection) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('🔒 Закрываем предыдущее соединение');
+      peerConnection.close();
+      peerConnection = null;
     }
-  } catch (err) {
-    console.error('Ошибка при добавлении ICE-кандидата:', err);
   }
-});
 
-// Кнопка
-callBtn.addEventListener('click', () => {
-  if (!peerConnection || peerConnection.signalingState === 'closed') {
-    startCall();
-  } else {
-    closeCurrentConnection();
-    updateCallButton('📞 Позвонить');
+  function updateCallButton(text) {
+    callBtn.textContent = text;
+    callBtn.disabled = text.includes('активен');
   }
-});
-
-// Утилиты
-function closeCurrentConnection() {
-  if (peerConnection) {
-    peerConnection.close();
-    peerConnection = null;
-  }
-}
-
-function updateCallButton(text) {
-  callBtn.textContent = text;
-  callBtn.disabled = text.includes('активен');
 }
